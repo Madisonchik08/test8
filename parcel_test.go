@@ -51,18 +51,14 @@ func TestAddGetDelete(t *testing.T) {
 	// проверьте, что значения всех полей в полученном объекте совпадают со значениями полей в переменной parcel
 	storedParcel, err := store.Get(int(id))
 	require.NoError(t, err)
-	require.Equal(t, parcel.Number, storedParcel.Number)
-	require.Equal(t, parcel.Client, storedParcel.Client)
-	require.Equal(t, parcel.Status, storedParcel.Status)
-	require.Equal(t, parcel.Address, storedParcel.Address)
-	require.Equal(t, parcel.CreatedAt, storedParcel.CreatedAt)
+	require.Equal(t, parcel, storedParcel)
 	// delete
 	// удалите добавленную посылку, убедитесь в отсутствии ошибки
 	// проверьте, что посылку больше нельзя получить из БД
 	err = store.Delete(int(id))
 	require.NoError(t, err)
 	_, err = store.Get(int(id))
-	require.Error(t, err, fmt.Errorf("Parcel with id %d not found", id))
+	require.Error(t, err, fmt.Errorf("parcel with id %d not found", id))
 }
 
 // TestSetAddress проверяет обновление адреса
@@ -100,7 +96,8 @@ func TestSetAddress(t *testing.T) {
 	require.Contains(t, err.Error(), "cannot change address")
 	err = store.Delete(int(id))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot delete a registered parcel")
+	require.Contains(t, err.Error(), "cannot delete parcel")
+	require.Contains(t, err.Error(), "not found or status is not 'registered'")
 }
 
 // TestSetStatus проверяет обновление статуса
@@ -135,6 +132,7 @@ func TestGetByClient(t *testing.T) {
 	db, err := sql.Open("sqlite", "tracker.db")
 	require.NoError(t, err)
 	defer db.Close()
+
 	store := NewParcelStore(db)
 
 	parcels := []Parcel{
@@ -142,7 +140,7 @@ func TestGetByClient(t *testing.T) {
 		getTestParcel(),
 		getTestParcel(),
 	}
-	parcelMap := map[int64]Parcel{}
+	parcelMap := map[int]Parcel{}
 
 	// задаём всем посылкам один и тот же идентификатор клиента
 	client := randRange.Intn(10_000_000)
@@ -160,7 +158,7 @@ func TestGetByClient(t *testing.T) {
 		parcels[i].Number = int(id)
 
 		// сохраняем добавленную посылку в структуру map, чтобы её можно было легко достать по идентификатору посылки
-		parcelMap[int64(int(id))] = parcels[i]
+		parcelMap[(int(id))] = parcels[i]
 	}
 
 	// get by client
@@ -172,15 +170,11 @@ func TestGetByClient(t *testing.T) {
 	require.Len(t, storedParcels, len(parcels))
 	// check
 	for _, parcel := range storedParcels {
-		expectedParcel, ok := parcelMap[int64(parcel.Number)]
+		expectedParcel, ok := parcelMap[parcel.Number]
 		require.True(t, ok, "Parcel with number %d not found", parcel.Number)
 		// в parcelMap лежат добавленные посылки, ключ - идентификатор посылки, значение - сама посылка
 		// убедитесь, что все посылки из storedParcels есть в parcelMap
 		// убедитесь, что значения полей полученных посылок заполнены верно
-		require.Equal(t, expectedParcel.Number, parcel.Number)
-		require.Equal(t, expectedParcel.Client, parcel.Client)
-		require.Equal(t, expectedParcel.Status, parcel.Status)
-		require.Equal(t, expectedParcel.Address, parcel.Address)
-		require.Equal(t, expectedParcel.CreatedAt, parcel.CreatedAt)
+		require.Equal(t, expectedParcel, parcel)
 	}
 }

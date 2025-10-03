@@ -70,13 +70,6 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 
 func (s ParcelStore) SetStatus(number int, status string) error {
 	// реализуйте обновление статуса в таблице parcel
-	parcel, err := s.Get(number)
-	if err != nil {
-		return err
-	}
-	if parcel.Status == ParcelStatusDelivered && status != ParcelStatusDelivered {
-		return fmt.Errorf("cannot change status of a delivered panel (parcel #%d)", number)
-	}
 	res, err := s.db.Exec("Update parcel set status = ? where number = ?", status, number)
 	if err != nil {
 		return fmt.Errorf("error updating parcel %d: %w", number, err)
@@ -86,31 +79,23 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 		return fmt.Errorf("error getting rows affected parcel %d: %w", number, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("no rows affected to parcel %d", number)
+		return fmt.Errorf("no parcel with number %d found or status already set to %s", number, status)
 	}
 	return nil
 }
 
 func (s ParcelStore) SetAddress(number int, address string) error {
 	// реализуйте обновление адреса в таблице parcel
-	parcel, err := s.Get(number)
+	res, err := s.db.Exec("Update parcel set address = ? where number = ? and status = ?", address, number, ParcelStatusRegistered)
 	if err != nil {
-		return err
-	}
-	// менять адрес можно только если значение статуса registered
-	if parcel.Status != ParcelStatusRegistered {
-		return fmt.Errorf("cannot change address for a percel not in registred status (parcel #%d, current status: %s)", number, parcel.Status)
-	}
-	res, err := s.db.Exec("Update parcel set address = ? where number = ?", address, number)
-	if err != nil {
-		return fmt.Errorf("error updating parcel %d: %w", number, err)
+		return fmt.Errorf("error getting rows affected for parcel %d: %w", number, err)
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("error getting rows affected parcel %d: %w", number, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("no rows affected to parcel %d", number)
+		return fmt.Errorf("cannot change address for parcel %d: not found or status is not '%s'", number, ParcelStatusRegistered)
 	}
 	return nil
 }
@@ -118,14 +103,7 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
-	parcel, err := s.Get(number)
-	if err != nil {
-		return err
-	}
-	if parcel.Status != ParcelStatusRegistered {
-		return fmt.Errorf("cannot delete a registered parcel (parcel #%d, current status: %s)", number, parcel.Status)
-	}
-	res, err := s.db.Exec("Delete from parcel where number = ?", number)
+	res, err := s.db.Exec("Delete from parcel where number = ? and status = ?", number, ParcelStatusRegistered)
 	if err != nil {
 		return fmt.Errorf("error deleting parcel %d: %w", number, err)
 	}
@@ -134,7 +112,7 @@ func (s ParcelStore) Delete(number int) error {
 		return fmt.Errorf("error getting rows affected parcel %d: %w", number, err)
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("no rows affected to parcel %d", number)
+		return fmt.Errorf("cannot delete parcel %d: not found or status is not '%s'", number, ParcelStatusRegistered)
 	}
 	return nil
 }
