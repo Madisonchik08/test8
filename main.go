@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -43,7 +44,7 @@ func (s ParcelService) Register(client int, address string) (Parcel, error) {
 		return parcel, err
 	}
 
-	parcel.Number = id
+	parcel.Number = int(id)
 
 	fmt.Printf("Новая посылка № %d на адрес %s от клиента с идентификатором %d зарегистрирована %s\n",
 		parcel.Number, parcel.Address, parcel.Client, parcel.CreatedAt)
@@ -98,8 +99,11 @@ func (s ParcelService) Delete(number int) error {
 
 func main() {
 	// настройте подключение к БД
-
-	store := // создайте объект ParcelStore функцией NewParcelStore
+	db, err := sql.Open("sqlite", "tracker.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	store := NewParcelStore(db)
 	service := NewParcelService(store)
 
 	// регистрация посылки
